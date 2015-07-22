@@ -1,0 +1,116 @@
+from __future__ import division
+from commands import getoutput
+from Evaluation import calc_fscore, calc_precision_recall, Evaluator
+# from Trees import open_tree_object
+from Strings import try_parse_float
+import re
+import os
+
+__all__ = ['get_fscore_from_evalb', 'get_evalb_summary', 
+           'per_sentence_scores', 'evalb']
+
+# regex to extract F scores from evalb output
+evalb_fmeasure_re = re.compile(r'Bracketing FMeasure\s+=\s+(\d+\.\d+)')
+
+def get_fscore_from_evalb(text):
+    """Returns a list of the two F scores from the output of evalb.
+    F scores will be floats between 0.0 and 100.0"""
+    return [float(f) for f in evalb_fmeasure_re.findall(text)]
+def get_evalb_summary(text):
+    long = {}
+    short = {}
+    d = None
+    for line in text.splitlines():
+        line = line.strip()
+        # these lines tell us which dictionary to fill
+        if line == '-- All --':
+            d = long
+        elif line.startswith('-- len'): # e.g. "-- len<40 --"
+            d = short
+
+        # no dictionary yet?  no problem!
+        if d is None:
+            continue
+
+        # we have a dictionary and a line, so try to parse it
+        try:
+            k, v = line.split('=')
+            k = k.strip()
+            v = try_parse_float(v)
+            d[k] = v
+        except:
+            pass # TODO: warn?
+    return long, short
+
+def _make_evalb_per_sentence_regex():
+    parts = (('id', int), ('len', int), ('stat', int), ('precision', float),
+             ('recall', float), ('matchedbracket', int), ('goldbracket', int),
+             ('testbracket', int), ('crossbracket', int), ('words', int), 
+             ('correcttags', int), ('tagaccuracy', float))
+    s = []
+    for part, parttype in parts:
+        if parttype is int:
+            parttype = r'\d+'
+        else: # float
+            parttype = r'\d+\.\d+'
+        s.append(r'(?P<%s>%s)' % (part, parttype))
+    s = r'^\s*' + r'\s+'.join(s)
+    return re.compile(s)
+
+sentence_stats_re = _make_evalb_per_sentence_regex()
+length_unmatch_re = re.compile(r'\d+ : Length unmatch \(\d+\|\d+\)')
+def per_sentence_scores(stringiter):
+    for line in stringiter:
+        # attempt to clean up length "unmatch"es
+        match = length_unmatch_re.search(line)
+        if match:
+            line = length_unmatch_re.sub('', line).rstrip() + ' '
+            line += stringiter.next().lstrip()
+
+        match = sentence_stats_re.match(line)
+        if match:
+            d = {}
+            for k, v in match.groupdict().items():
+                d[k] = try_parse_float(v)
+            d['precision'], d['recall'] = \
+                calc_precision_recall(d['matchedbracket'], 
+                                      d['goldbracket'], 
+                                      d['testbracket'])
+            d['precision'] *= 100
+            d['recall'] *= 100
+            d['fscore'] = calc_fscore(d['precision'], d['recall'])
+            yield d
+
+# for compatibility with things that spell this the old way
+per_sentence_scores_from_evalb = per_sentence_scores
+
+evalb_binary = os.path.join(os.path.split(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0])[0], 'EVALB/evalb')
+evalb_params = os.path.join(os.path.split(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0])[0], 'EVALB/new.prm')
+class evalb(Evaluator):
+    def fscore_extractor(self, text):
+        # print text
+        all_sents, short_sents = get_fscore_from_evalb(text)
+        return all_sents / 100.0
+    def evaluate(self, test, gold, cutoff=100, evalb_binary=evalb_binary,
+                 evalb_params=evalb_params, evalb_extra_options='', debug=True):
+        # print test.name, gold
+        # test = open_tree_object(test)
+        # gold = open_tree_object(gold)
+        #
+        command = "%s -p %s -c %d %s %s %s" % (evalb_binary, evalb_params,
+                                               cutoff, evalb_extra_options,
+                                               gold, test)
+        if debug:
+            print "evalb command:", repr(command)
+        return getoutput(command)
+    def summary_extractor(self, text, short=False):
+        long, short = get_evalb_summary(text)
+        if short:
+            return short
+        else:
+            return long
+    def per_line_stats_extractor(self, text_or_iter):
+        if isinstance(text_or_iter, basestring):
+            text_or_iter = text_or_iter.splitlines()
+
+        return per_sentence_scores(text_or_iter)
