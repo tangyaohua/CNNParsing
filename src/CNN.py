@@ -170,9 +170,9 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
                  os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/embeddings.txt')
         )
 
-        train_set,_, train_candcnt = prodata.finaldata(os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/train1.txt'))
-        valid_set, validtreestrs, valid_candcnt = prodata.finaldata(os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/valid1.txt'))
-        test_set, testtreestrs, test_candcnt  = prodata.finaldata(os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/test1.txt'))
+        train_set,_, train_candcnt = prodata.finaldata(os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/train.txt'))
+        valid_set, validtreestrs, valid_candcnt = prodata.finaldata(os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/valid.txt'))
+        test_set, testtreestrs, test_candcnt  = prodata.finaldata(os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/test.txt'))
 
         output = open(os.path.join(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0], 'data/train.pkl'), 'wb')
         pickle.dump((prodata,train_set, train_candcnt, valid_set, validtreestrs, valid_candcnt, test_set, testtreestrs, test_candcnt), output)

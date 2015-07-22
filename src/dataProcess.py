@@ -181,7 +181,7 @@ class PreProcess(object):
                                 self.embedingsize=len(embedsv)
                                 # insert all zeros token embedding for the blank(0) cells
                                 self.vocabularyset.append('000')
-                                self.vocabulary.append(np.zeros((self.embedingsize0),dtype=theano.config.floatX))
+                                self.vocabulary.append(np.zeros((self.embedingsize),dtype=theano.config.floatX))
                                 self.nonofwords+=1
                             else:
                                 assert self.embedingsize==len(embedsv)
